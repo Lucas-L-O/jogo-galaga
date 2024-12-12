@@ -116,7 +116,9 @@ function drawBullets() {
 }
 
 const enemies = [];
-let enemySpeed = 3
+let enemySpeed = 3;
+const enemyBullets = [];
+let enemyBulletsSpeed = 4;
 
 function spawnEnemy() {
     const size = 50;
@@ -129,7 +131,53 @@ function spawnEnemy() {
         speed: enemySpeed,
         horizontalSpeed: Math.random() > 0.5 ? 2 : 0,
         direction: Math.random() > 0.5 ? 1 : -1,
+        canShoot: Math.random() > 0.98,
     });
+}
+
+function handleEnemyShooting() {
+    enemies.forEach(enemy => {
+        if (enemy.canShoot && Math.random() > 0.98) {
+            enemyBullets.push({
+                x: enemy.x + enemy.width / 2 - 2.5,
+                y: enemy.y + enemy.height,
+                width: 5,
+                height: 10,
+                color: 'yellow',
+                speed: enemyBulletsSpeed,
+            });
+        }
+    });
+}
+
+function drawEnemiesBullets() {
+    enemyBullets.forEach((bullet, index) => {
+        bullet.y += bullet.speed;
+        if (bullet.y > canvas.height) {
+            enemyBullets.splice(index, 1);
+        }
+        ctx.fillStyle = bullet.color;
+        ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+    });
+}
+
+function detectEnemyBulletCollisions() {
+    enemyBullets.forEach((bullet, index) => {
+        if (
+            bullet.x < player.x + player.width &&
+            bullet.x + bullet.width > player.x &&
+            bullet.y < player.y + player.height &&
+            bullet.y + bullet.height > player.y
+        ) {
+            gameOver();
+        }
+    });
+}
+
+function increaseEnemyBulletSpeed() {
+    if (score % 100 === 0 && score > 0) {
+        enemyBulletsSpeed += 0.01;
+    }
 }
 
 function increaseEnemySpeed() {
@@ -150,7 +198,7 @@ function drawEnemies() {
         }
 
         if (enemy.y > canvas.height) {
-            enemies.splice(index, 1); // Remove inimigos fora da tela
+            enemies.splice(index, 1);
         }
         ctx.fillStyle = enemy.color;
         ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
@@ -278,13 +326,17 @@ function gameLoop() {
 
     handlePlayerMovement();
     handleShooting();
+    handleEnemyShooting();
     drawPlayer();
     drawBullets();
     drawEnemies();
+    drawEnemiesBullets();
     detectCollisions();
+    detectEnemyBulletCollisions();
     detectPlayerEnemyCollision();
     drawScore();
     increaseEnemySpeed();
+    increaseEnemyBulletSpeed();
     drawStars();
 
     requestAnimationFrame(gameLoop);
