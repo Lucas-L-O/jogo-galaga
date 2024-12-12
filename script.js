@@ -131,7 +131,7 @@ function spawnEnemy() {
         speed: enemySpeed,
         horizontalSpeed: Math.random() > 0.5 ? 2 : 0,
         direction: Math.random() > 0.5 ? 1 : -1,
-        canShoot: Math.random() > 0.98,
+        canShoot: Math.random() > 0.9,
     });
 }
 
@@ -171,6 +171,23 @@ function detectEnemyBulletCollisions() {
         ) {
             gameOver();
         }
+    });
+}
+
+// Detecta colisão de disparos entre inimigos e players
+function detectBulletEnemyAndPlayerCollisions() {
+    bullets.forEach((bullet, bulletIndex) => {
+        enemyBullets.forEach((enemyBullet, enemyBulletIndex) => {
+            if (
+                bullet.x < enemyBullet.x + enemyBullet.width &&
+                bullet.x + bullet.width > enemyBullet.x &&
+                bullet.y < enemyBullet.y + enemyBullet.height &&
+                bullet.y + bullet.height > enemyBullet.y
+            ) {
+                bullets.splice(bulletIndex, 1);
+                enemyBullets.splice(enemyBulletIndex, 1);
+            }
+        });
     });
 }
 
@@ -332,6 +349,7 @@ function gameLoop() {
     drawEnemies();
     drawEnemiesBullets();
     detectCollisions();
+    detectBulletEnemyAndPlayerCollisions();
     detectEnemyBulletCollisions();
     detectPlayerEnemyCollision();
     drawScore();
