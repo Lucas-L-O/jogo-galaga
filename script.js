@@ -1,7 +1,6 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-// Defina o tamanho do canvas
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
@@ -23,15 +22,35 @@ const player = {
 };
 
 function drawPlayer() {
-    ctx.fillStyle = 'white';
+    const gradient = ctx.createLinearGradient(player.x, player.y, player.x, player.y + player.height);
+    gradient.addColorStop(0, 'blue');
+    gradient.addColorStop(1, 'purple');
+    ctx.fillStyle = gradient;
 
-    // Desenha um triângulo
     ctx.beginPath();
-    ctx.moveTo(player.x, player.y + player.height); // Vértice inferior esquerdo
-    ctx.lineTo(player.x + player.width / 2, player.y); // Vértice superior
-    ctx.lineTo(player.x + player.width, player.y + player.height); // Vértice inferior direito
+    ctx.moveTo(player.x, player.y + player.height);
+    ctx.lineTo(player.x + player.width / 2, player.y);
+    ctx.lineTo(player.x + player.width, player.y + player.height);
     ctx.closePath();
     ctx.fill();
+}
+
+const stars = Array.from({ length: 100 }, () => ({
+    x: Math.random() * canvas.width,
+    y: Math.random() * canvas.height,
+    size: Math.random() * 2 + 1,
+    speed: Math.random() * 2 + 1,
+}));
+
+function drawStars() {
+    stars.forEach((star) => {
+        star.y += star.speed;
+        if (star.y > canvas.height) star.y = 0;
+        ctx.fillStyle = 'white';
+        ctx.beginPath();
+        ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+        ctx.fill();
+    });
 }
 
 const pressedKeys = {};
@@ -106,21 +125,30 @@ function spawnEnemy() {
         y: 0,
         width: size,
         height: size,
-        color: 'green',
+        color: `hsl(${Math.random() * 360}, 100%, 50%)`,
         speed: enemySpeed,
+        horizontalSpeed: Math.random() > 0.5 ? 2 : 0,
+        direction: Math.random() > 0.5 ? 1 : -1,
     });
 }
 
 function increaseEnemySpeed() {
     if (score % 100 === 0 && score > 0) {
         enemySpeed += 0.01;
-        console.log(enemies)
     }
 }
 
 function drawEnemies() {
     enemies.forEach((enemy, index) => {
         enemy.y += enemy.speed;
+
+        if (enemy.horizontalSpeed) {
+            enemy.x += enemy.horizontalSpeed * enemy.direction;
+            if (enemy.x <= 0 || enemy.x + enemy.width >= canvas.width) {
+                enemy.direction *= -1;
+            }
+        }
+
         if (enemy.y > canvas.height) {
             enemies.splice(index, 1); // Remove inimigos fora da tela
         }
@@ -188,21 +216,25 @@ function saveHighScore(score) {
         return; // Se não for um número válido, não salva
     }
 
-    const playerName = prompt('Parabéns! Você entrou para o ranking! Digite seu nome:');
+    const highScores = JSON.parse(localStorage.getItem('highScores')) || [];
+
+    if (highScores.length < 5 || score > highScores[highScores.length - 1].score) {
+        const playerName = prompt('Parabéns! Você entrou para o ranking! Digite seu nome:');
     
-    // Verifica se o nome é válido
-    if (playerName && playerName.trim() !== '') {
-        let highScores = JSON.parse(localStorage.getItem('highScores')) || [];
-        
-        // Adiciona o nome e a pontuação no ranking
-        highScores.push({ name: playerName, score });
-
-        // Ordena as pontuações de maior para menor e mantém apenas as 5 melhores
-        highScores.sort((a, b) => b.score - a.score);
-        highScores = highScores.slice(0, 5);
-
-        // Salva o novo ranking no localStorage
-        localStorage.setItem('highScores', JSON.stringify(highScores));
+        // Verifica se o nome é válido
+        if (playerName && playerName.trim() !== '') {
+            let highScores = JSON.parse(localStorage.getItem('highScores')) || [];
+            
+            // Adiciona o nome e a pontuação no ranking
+            highScores.push({ name: playerName, score });
+    
+            // Ordena as pontuações de maior para menor e mantém apenas as 5 melhores
+            highScores.sort((a, b) => b.score - a.score);
+            highScores = highScores.slice(0, 5);
+    
+            // Salva o novo ranking no localStorage
+            localStorage.setItem('highScores', JSON.stringify(highScores));
+        }
     }
 }
 
@@ -253,6 +285,7 @@ function gameLoop() {
     detectPlayerEnemyCollision();
     drawScore();
     increaseEnemySpeed();
+    drawStars();
 
     requestAnimationFrame(gameLoop);
 }
