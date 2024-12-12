@@ -116,6 +116,7 @@ function drawBullets() {
 }
 
 const enemies = [];
+const meteors = [];
 let enemySpeed = 3;
 const enemyBullets = [];
 let enemyBulletsSpeed = 4;
@@ -131,21 +132,64 @@ function spawnEnemy() {
         speed: enemySpeed,
         horizontalSpeed: Math.random() > 0.5 ? 2 : 0,
         direction: Math.random() > 0.5 ? 1 : -1,
-        canShoot: Math.random() > 0.9,
+        canShoot: true,
     });
 }
 
+function spawnMeteor() {
+    const size = 50;
+    const horizontalSpeed = Math.random() * 2 - 1;
+    meteors.push({
+        x: Math.random() * (canvas.width - size),
+        y: 0,
+        width: size,
+        height: size,
+        color: 'grey',
+        speed: enemySpeed,
+        horizontalSpeed: horizontalSpeed,
+    });
+}
+
+function spawnEnemiesAndMeteors() {
+    const enemyCount = Math.max(5, Math.floor(score / 10000));
+    const meteorCount = Math.max(3, Math.floor(enemyCount / 3));
+
+    for (let i = 0; i < enemyCount; i++) {
+        setInterval(spawnEnemy, 1000);
+    }
+    for (let i = 0; i < meteorCount; i++) {
+        setInterval(spawnMeteor, 1000);
+    }
+}
+
+const enemyShootDelay = 1000;
+let lastEnemyShootTime = 0;
+
 function handleEnemyShooting() {
-    enemies.forEach(enemy => {
-        if (enemy.canShoot && Math.random() > 0.98) {
-            enemyBullets.push({
-                x: enemy.x + enemy.width / 2 - 2.5,
-                y: enemy.y + enemy.height,
-                width: 5,
-                height: 10,
-                color: 'yellow',
-                speed: enemyBulletsSpeed,
-            });
+    const currentTime = Date.now();
+    if (currentTime - lastEnemyShootTime >= enemyShootDelay) {
+        enemies.forEach(enemy => {
+            if (enemy.canShoot) {
+                enemyBullets.push({
+                    x: enemy.x + enemy.width / 2 - 2.5,
+                    y: enemy.y + enemy.height,
+                    width: 5,
+                    height: 10,
+                    color: 'yellow',
+                    speed: enemyBulletsSpeed,
+                });
+            }
+        });
+        lastEnemyShootTime = currentTime;
+    }
+}
+
+function moveMeteors() {
+    meteors.forEach((meteor, index) => {
+        meteor.y += meteor.speed;
+        meteor.x += meteor.horizontalSpeed;
+        if (meteor.x < 0 || meteor.x + meteor.width > canvas.width || meteor.y > canvas.height) {
+            meteors.splice(index, 1);
         }
     });
 }
@@ -158,6 +202,23 @@ function drawEnemiesBullets() {
         }
         ctx.fillStyle = bullet.color;
         ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+    });
+}
+
+function detectMeteorsCollisions() {
+    bullets.forEach((bullet, bulletIndex) => {
+        meteors.forEach((meteor, meteorIndex) => {
+            if (
+                bullet.x < meteor.x + meteor.width &&
+                bullet.x + bullet.width > meteor.x &&
+                bullet.y < meteor.y + meteor.height &&
+                bullet.y + bullet.height > meteor.y
+            ) {
+                bullets.splice(bulletIndex, 1);
+                meteors.splice(meteorIndex, 1);
+                score += 5;
+            }
+        });
     });
 }
 
@@ -222,8 +283,21 @@ function drawEnemies() {
     });
 }
 
+function drawMeteors() {
+    meteors.forEach((meteor) => {
+        ctx.fillStyle = meteor.color;
+        ctx.beginPath();
+        ctx.moveTo(meteor.x + meteor.width / 2, meteor.y);
+        ctx.lineTo(meteor.x, meteor.y + meteor.height);
+        ctx.lineTo(meteor.x + meteor.width, meteor.y + meteor.height);
+        ctx.closePath();
+        ctx.fill();
+    });
+}
+
 // Spawna inimigos a cada segundo
 setInterval(spawnEnemy, 1000);
+setInterval(spawnMeteor, 1000);
 
 function detectCollisions() {
     bullets.forEach((bullet, bulletIndex) => {
@@ -249,6 +323,19 @@ function detectPlayerEnemyCollision() {
             player.x + player.width > enemy.x &&
             player.y < enemy.y + enemy.height &&
             player.y + player.height > enemy.y
+        ) {
+            gameOver();
+        }
+    });
+}
+
+function detectPlayerMeteorCollision() {
+    meteors.forEach((meteor) => {
+        if (
+            player.x < meteor.x + meteor.width &&
+            player.x + player.width > meteor.x &&
+            player.y < meteor.y + meteor.height &&
+            player.y + player.height > meteor.y
         ) {
             gameOver();
         }
@@ -341,21 +428,37 @@ function gameLoop() {
     if (!gameRunning) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    // Atualizando o jogo
     handlePlayerMovement();
     handleShooting();
     handleEnemyShooting();
+    moveMeteors();
+
+    // Chamando a função que spawn novos inimigos e meteoros
+    // spawnEnemiesAndMeteors();
+    // spawnEnemy();
+    // spawnMeteor();
+
+    // Desenha os elementos na tela
     drawPlayer();
     drawBullets();
     drawEnemies();
+    drawMeteors();
     drawEnemiesBullets();
+    drawStars();
+    drawScore();
+
+    // Detecta colisões
     detectCollisions();
     detectBulletEnemyAndPlayerCollisions();
     detectEnemyBulletCollisions();
     detectPlayerEnemyCollision();
-    drawScore();
+    detectMeteorsCollisions();
+    detectPlayerMeteorCollision();
+
+    // Aumenta a dificuldade
     increaseEnemySpeed();
     increaseEnemyBulletSpeed();
-    drawStars();
 
     requestAnimationFrame(gameLoop);
 }
