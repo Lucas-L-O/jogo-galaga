@@ -70,6 +70,12 @@ function handlePlayerMovement() {
     if (pressedKeys['ArrowRight'] && player.x < canvas.width - player.width) {
         player.x += player.speed;
     }
+    if (pressedKeys['ArrowUp'] && player.x > 0) {
+        player.y -= player.speed;
+    }
+    if (pressedKeys['ArrowDown'] && player.x > 0) {
+        player.y += player.speed;
+    }
 }
 
 let canShoot = true;
@@ -433,11 +439,6 @@ function gameLoop() {
     handleShooting();
     handleEnemyShooting();
     moveMeteors();
-
-    // Chamando a função que spawn novos inimigos e meteoros
-    // spawnEnemiesAndMeteors();
-    // spawnEnemy();
-    // spawnMeteor();
 
     // Desenha os elementos na tela
     drawPlayer();
