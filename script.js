@@ -1,440 +1,479 @@
-class Game {
-    constructor() {
-        this.canvas = document.getElementById('gameCanvas');
-        this.ctx = this.canvas.getContext('2d');
-        this.score = 0;
-        this.gameRunning = true;
-        
-        this.canvas.width = window.innerWidth;
-        this.canvas.height = window.innerHeight;
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
 
-        this.player = new Player(this.canvas.width / 2 - 25, this.canvas.height - 100);
-        this.stars = this.createStars(100);
-        this.bullets = [];
-        this.enemies = [];
-        this.meteors = [];
-        this.enemyBullets = [];
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
 
-        this.pressedKeys = {};
-        this.enemySpeed = 3;
-        this.enemyBulletsSpeed = 4;
+// Atualize o canvas ao redimensionar
+window.addEventListener('resize', () => {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+});
 
-        this.setupEventListeners();
-    }
+let score = 0;
 
-    setupEventListeners() {
-        window.addEventListener('resize', () => {
-            this.canvas.width = window.innerWidth;
-            this.canvas.height = window.innerHeight;
-        });
+const player = {
+    x: canvas.width / 2 - 25,
+    y: canvas.height - 100,
+    width: 50,
+    height: 50,
+    color: 'white',
+    speed: 10,
+};
 
-        document.addEventListener('keydown', (e) => {
-            this.pressedKeys[e.key] = true;
-            if (e.key === 'Enter' && !this.gameRunning) {
-                this.restartGame();
-            }
-            if (e.key === ' ') {
-                this.player.shoot(this.bullets);
-            }
-        });
+function drawPlayer() {
+    const gradient = ctx.createLinearGradient(player.x, player.y, player.x, player.y + player.height);
+    gradient.addColorStop(0, 'blue');
+    gradient.addColorStop(1, 'purple');
+    ctx.fillStyle = gradient;
 
-        document.addEventListener('keyup', (e) => {
-            this.pressedKeys[e.key] = false;
-        });
-    }
-
-    createStars(count) {
-        return Array.from({ length: count }, () => new Star(
-            Math.random() * this.canvas.width, 
-            Math.random() * this.canvas.height
-        ));
-    }
-
-    handlePlayerMovement() {
-        if (this.pressedKeys['ArrowLeft'] && this.player.x > 0) {
-            this.player.x -= this.player.speed;
-        }
-        if (this.pressedKeys['ArrowRight'] && this.player.x < this.canvas.width - this.player.width) {
-            this.player.x += this.player.speed;
-        }
-    }
-
-    spawnEnemy() {
-        const size = 50;
-        this.enemies.push(new Enemy(
-            Math.random() * (this.canvas.width - size), 
-            0, 
-            size, 
-            this.enemySpeed
-        ));
-    }
-
-    spawnMeteor() {
-        const size = 50;
-        const horizontalSpeed = Math.random() * 2 - 1;
-        this.meteors.push(new Meteor(
-            Math.random() * (this.canvas.width - size), 
-            0, 
-            size, 
-            this.enemySpeed, 
-            horizontalSpeed
-        ));
-    }
-
-    handleEnemyShooting() {
-        this.enemies.forEach(enemy => {
-            if (enemy.canShoot) {
-                this.enemyBullets.push(enemy.shoot());
-            }
-        });
-    }
-
-    detectCollisions() {
-        // Colisão de balas do player com inimigos
-        this.bullets.forEach((bullet, bulletIndex) => {
-            this.enemies.forEach((enemy, enemyIndex) => {
-                if (this.checkCollision(bullet, enemy)) {
-                    this.bullets.splice(bulletIndex, 1);
-                    this.enemies.splice(enemyIndex, 1);
-                    this.score += 10;
-                }
-            });
-        });
-
-        // Colisão de balas do player com meteoros
-        this.bullets.forEach((bullet, bulletIndex) => {
-            this.meteors.forEach((meteor, meteorIndex) => {
-                if (this.checkCollision(bullet, meteor)) {
-                    this.bullets.splice(bulletIndex, 1);
-                    this.meteors.splice(meteorIndex, 1);
-                    this.score += 5;
-                }
-            });
-        });
-
-        // Colisão de balas inimigas com o player
-        this.enemyBullets.forEach((bullet, index) => {
-            if (this.checkCollision(bullet, this.player)) {
-                this.gameOver();
-            }
-        });
-
-        // Colisão de inimigos com o player
-        this.enemies.forEach(enemy => {
-            if (this.checkCollision(enemy, this.player)) {
-                this.gameOver();
-            }
-        });
-
-        // Colisão de meteoros com o player
-        this.meteors.forEach(meteor => {
-            if (this.checkCollision(meteor, this.player)) {
-                this.gameOver();
-            }
-        });
-    }
-
-    checkCollision(obj1, obj2) {
-        return (
-            obj1.x < obj2.x + obj2.width &&
-            obj1.x + obj1.width > obj2.x &&
-            obj1.y < obj2.y + obj2.height &&
-            obj1.y + obj1.height > obj2.y
-        );
-    }
-
-    updateGameElements() {
-        this.enemies.forEach((enemy, index) => {
-            enemy.update(this.canvas.width);
-            if (enemy.y > this.canvas.height) {
-                this.enemies.splice(index, 1);
-            }
-        });
-
-        this.meteors.forEach((meteor, index) => {
-            meteor.update(this.canvas.width);
-            if (meteor.y > this.canvas.height) {
-                this.meteors.splice(index, 1);
-            }
-        });
-
-        this.bullets.forEach((bullet, index) => {
-            bullet.update();
-            if (bullet.y < 0) {
-                this.bullets.splice(index, 1);
-            }
-        });
-
-        this.enemyBullets.forEach((bullet, index) => {
-            bullet.updateEnemy();
-            if (bullet.y > this.canvas.height) {
-                this.enemyBullets.splice(index, 1);
-            }
-        });
-
-        this.stars.forEach(star => star.update(this.canvas.height));
-    }
-
-    draw() {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-
-        this.stars.forEach(star => star.draw(this.ctx));
-        this.player.draw(this.ctx);
-        this.bullets.forEach(bullet => bullet.draw(this.ctx));
-        this.enemies.forEach(enemy => enemy.draw(this.ctx));
-        this.meteors.forEach(meteor => meteor.draw(this.ctx));
-        this.enemyBullets.forEach(bullet => bullet.draw(this.ctx));
-
-        this.drawScore();
-    }
-
-    drawScore() {
-        this.ctx.fillStyle = 'white';
-        this.ctx.font = '24px Arial';
-        this.ctx.fillText(`Score: ${this.score}`, 10, 30);
-    }
-
-    gameOver() {
-        this.gameRunning = false;
-        this.saveHighScore();
-
-        this.ctx.fillStyle = 'red';
-        this.ctx.font = '48px Arial';
-        this.ctx.fillText('GAME OVER', this.canvas.width / 2 - 150, this.canvas.height / 2);
-
-        this.ctx.fillStyle = 'white';
-        this.ctx.font = '24px Arial';
-        this.ctx.fillText(`Pontuação: ${this.score}. Pressione Enter para reiniciar`, this.canvas.width / 2 - 150, this.canvas.height / 2 + 50);
-
-        this.drawHighScores();
-    }
-
-    saveHighScore() {
-        if (typeof this.score !== 'number' || isNaN(this.score) || this.score <= 0) {
-            return;
-        }
-
-        const highScores = JSON.parse(localStorage.getItem('highScores')) || [];
-
-        if (highScores.length < 5 || this.score > highScores[highScores.length - 1].score) {
-            const playerName = prompt('Parabéns! Você entrou para o ranking! Digite seu nome:');
-        
-            if (playerName && playerName.trim() !== '') {
-                let highScores = JSON.parse(localStorage.getItem('highScores')) || [];
-                
-                highScores.push({ name: playerName, score: this.score });
-        
-                highScores.sort((a, b) => b.score - a.score);
-                highScores = highScores.slice(0, 5);
-        
-                localStorage.setItem('highScores', JSON.stringify(highScores));
-            }
-        }
-    }
-
-    drawHighScores() {
-        const highScores = JSON.parse(localStorage.getItem('highScores')) || [];
-        const validScores = highScores.filter(score => score.name && typeof score.score === 'number' && !isNaN(score.score));
-        
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        this.ctx.fillStyle = 'white';
-        this.ctx.font = '24px Arial';
-        this.ctx.fillText('Top 5 Pontuações:', this.canvas.width / 2 - 100, 50);
-
-        validScores.forEach((score, index) => {
-            this.ctx.fillText(`${index + 1}. ${score.name}: ${score.score}`, this.canvas.width / 2 - 100, 80 + index * 50);
-        });
-    }
-
-    restartGame() {
-        this.score = 0;
-        this.enemies = [];
-        this.meteors = [];
-        this.bullets = [];
-        this.enemyBullets = [];
-        this.player.x = this.canvas.width / 2 - this.player.width / 2;
-        this.player.y = this.canvas.height - this.player.height - 10;
-        this.gameRunning = true;
-        this.gameLoop();
-    }
-
-    gameLoop() {
-        if (!this.gameRunning) return;
-
-        this.handlePlayerMovement();
-        this.handleEnemyShooting();
-        this.updateGameElements();
-        this.detectCollisions();
-        this.draw();
-
-        // Spawnar novos inimigos e meteoros periodicamente
-        if (Math.random() < 0.02) this.spawnEnemy();
-        if (Math.random() < 0.01) this.spawnMeteor();
-
-        // Aumentar dificuldade gradualmente
-        this.enemySpeed += 0.001;
-        this.enemyBulletsSpeed += 0.001;
-
-        requestAnimationFrame(() => this.gameLoop());
-    }
-
-    start() {
-        this.gameLoop();
-    }
+    ctx.beginPath();
+    ctx.moveTo(player.x, player.y + player.height);
+    ctx.lineTo(player.x + player.width / 2, player.y);
+    ctx.lineTo(player.x + player.width, player.y + player.height);
+    ctx.closePath();
+    ctx.fill();
 }
 
-class Player {
-    constructor(x, y) {
-        this.x = x;
-        this.y = y;
-        this.width = 50;
-        this.height = 50;
-        this.speed = 10;
-        this.canShoot = true;
-        this.shootDelay = 200;
-    }
+const stars = Array.from({ length: 100 }, () => ({
+    x: Math.random() * canvas.width,
+    y: Math.random() * canvas.height,
+    size: Math.random() * 2 + 1,
+    speed: Math.random() * 2 + 1,
+}));
 
-    draw(ctx) {
-        const gradient = ctx.createLinearGradient(this.x, this.y, this.x, this.y + this.height);
-        gradient.addColorStop(0, 'blue');
-        gradient.addColorStop(1, 'purple');
-        ctx.fillStyle = gradient;
-
-        ctx.beginPath();
-        ctx.moveTo(this.x, this.y + this.height);
-        ctx.lineTo(this.x + this.width / 2, this.y);
-        ctx.lineTo(this.x + this.width, this.y + this.height);
-        ctx.closePath();
-        ctx.fill();
-    }
-
-    shoot(bullets) {
-        if (this.canShoot) {
-            bullets.push(new Bullet(
-                this.x + this.width / 2 - 2.5, 
-                this.y, 
-                5, 
-                5, 
-                'red', 
-                -5
-            ));
-            this.canShoot = false;
-            setTimeout(() => {
-                this.canShoot = true;
-            }, this.shootDelay);
-        }
-    }
-}
-
-class Star {
-    constructor(x, y) {
-        this.x = x;
-        this.y = y;
-        this.size = Math.random() * 2 + 1;
-        this.speed = Math.random() * 2 + 1;
-    }
-
-    update(canvasHeight) {
-        this.y += this.speed;
-        if (this.y > canvasHeight) this.y = 0;
-    }
-
-    draw(ctx) {
+function drawStars() {
+    stars.forEach((star) => {
+        star.y += star.speed;
+        if (star.y > canvas.height) star.y = 0;
         ctx.fillStyle = 'white';
         ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
         ctx.fill();
+    });
+}
+
+const pressedKeys = {};
+
+document.addEventListener('keydown', (e) => {
+    pressedKeys[e.key] = true;
+});
+
+document.addEventListener('keyup', (e) => {
+    pressedKeys[e.key] = false;
+});
+
+function handlePlayerMovement() {
+    if (pressedKeys['ArrowLeft'] && player.x > 0) {
+        player.x -= player.speed;
+    }
+    if (pressedKeys['ArrowRight'] && player.x < canvas.width - player.width) {
+        player.x += player.speed;
     }
 }
 
-class Bullet {
-    constructor(x, y, width, height, color, speed) {
-        this.x = x;
-        this.y = y;
-        this.width = width;
-        this.height = height;
-        this.color = color;
-        this.speed = speed;
-    }
+let canShoot = true;
+const shootDelay = 200;
 
-    update() {
-        this.y += this.speed;
-    }
-
-    updateEnemy() {
-        this.y += Math.abs(this.speed);
-    }
-
-    draw(ctx) {
-        ctx.fillStyle = this.color;
-        ctx.fillRect(this.x, this.y, this.width, this.height);
+function handleShooting() {
+    if (pressedKeys[' '] && canShoot) {
+        shoot();
+        canShoot = false;
+        setTimeout(() => {
+            canShoot = true;
+        }, shootDelay);
     }
 }
 
-class Enemy {
-    constructor(x, y, size, speed) {
-        this.x = x;
-        this.y = y;
-        this.width = size;
-        this.height = size;
-        this.speed = speed;
-        this.color = `hsl(${Math.random() * 360}, 100%, 50%)`;
-        this.horizontalSpeed = Math.random() > 0.5 ? 2 : 0;
-        this.direction = Math.random() > 0.5 ? 1 : -1;
-        this.canShoot = true;
+const bullets = [];
+
+function shoot() {
+    bullets.push({
+        x: player.x + player.width / 2 - 5,
+        y: player.y,
+        width: 5,
+        height: 5,
+        color: 'red',
+        speed: 5,
+    });
+}
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === ' ') {
+        shoot();
     }
+});
 
-    update(canvasWidth) {
-        this.y += this.speed;
+function drawBullets() {
+    bullets.forEach((bullet, index) => {
+        bullet.y -= bullet.speed;
+        if (bullet.y < 0) {
+            bullets.splice(index, 1);
+        }
+        ctx.fillStyle = bullet.color;
+        ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+    });
+}
 
-        if (this.horizontalSpeed) {
-            this.x += this.horizontalSpeed * this.direction;
-            if (this.x <= 0 || this.x + this.width >= canvasWidth) {
-                this.direction *= -1;
+const enemies = [];
+const meteors = [];
+let enemySpeed = 3;
+const enemyBullets = [];
+let enemyBulletsSpeed = 4;
+
+function spawnEnemy() {
+    const size = 50;
+    enemies.push({
+        x: Math.random() * (canvas.width - size),
+        y: 0,
+        width: size,
+        height: size,
+        color: `hsl(${Math.random() * 360}, 100%, 50%)`,
+        speed: enemySpeed,
+        horizontalSpeed: Math.random() > 0.5 ? 2 : 0,
+        direction: Math.random() > 0.5 ? 1 : -1,
+        canShoot: true,
+    });
+}
+
+function spawnMeteor() {
+    const size = 50;
+    const horizontalSpeed = Math.random() * 2 - 1;
+    meteors.push({
+        x: Math.random() * (canvas.width - size),
+        y: 0,
+        width: size,
+        height: size,
+        color: 'grey',
+        speed: enemySpeed,
+        horizontalSpeed: horizontalSpeed,
+    });
+}
+
+function spawnEnemiesAndMeteors() {
+    const enemyCount = Math.max(5, Math.floor(score / 10000));
+    const meteorCount = Math.max(3, Math.floor(enemyCount / 3));
+
+    for (let i = 0; i < enemyCount; i++) {
+        setInterval(spawnEnemy, 1000);
+    }
+    for (let i = 0; i < meteorCount; i++) {
+        setInterval(spawnMeteor, 1000);
+    }
+}
+
+const enemyShootDelay = 1000;
+let lastEnemyShootTime = 0;
+
+function handleEnemyShooting() {
+    const currentTime = Date.now();
+    if (currentTime - lastEnemyShootTime >= enemyShootDelay) {
+        enemies.forEach(enemy => {
+            if (enemy.canShoot) {
+                enemyBullets.push({
+                    x: enemy.x + enemy.width / 2 - 2.5,
+                    y: enemy.y + enemy.height,
+                    width: 5,
+                    height: 10,
+                    color: 'yellow',
+                    speed: enemyBulletsSpeed,
+                });
+            }
+        });
+        lastEnemyShootTime = currentTime;
+    }
+}
+
+function moveMeteors() {
+    meteors.forEach((meteor, index) => {
+        meteor.y += meteor.speed;
+        meteor.x += meteor.horizontalSpeed;
+        if (meteor.x < 0 || meteor.x + meteor.width > canvas.width || meteor.y > canvas.height) {
+            meteors.splice(index, 1);
+        }
+    });
+}
+
+function drawEnemiesBullets() {
+    enemyBullets.forEach((bullet, index) => {
+        bullet.y += bullet.speed;
+        if (bullet.y > canvas.height) {
+            enemyBullets.splice(index, 1);
+        }
+        ctx.fillStyle = bullet.color;
+        ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+    });
+}
+
+function detectMeteorsCollisions() {
+    bullets.forEach((bullet, bulletIndex) => {
+        meteors.forEach((meteor, meteorIndex) => {
+            if (
+                bullet.x < meteor.x + meteor.width &&
+                bullet.x + bullet.width > meteor.x &&
+                bullet.y < meteor.y + meteor.height &&
+                bullet.y + bullet.height > meteor.y
+            ) {
+                bullets.splice(bulletIndex, 1);
+                meteors.splice(meteorIndex, 1);
+                score += 5;
+            }
+        });
+    });
+}
+
+function detectEnemyBulletCollisions() {
+    enemyBullets.forEach((bullet, index) => {
+        if (
+            bullet.x < player.x + player.width &&
+            bullet.x + bullet.width > player.x &&
+            bullet.y < player.y + player.height &&
+            bullet.y + bullet.height > player.y
+        ) {
+            gameOver();
+        }
+    });
+}
+
+// Detecta colisão de disparos entre inimigos e players
+function detectBulletEnemyAndPlayerCollisions() {
+    bullets.forEach((bullet, bulletIndex) => {
+        enemyBullets.forEach((enemyBullet, enemyBulletIndex) => {
+            if (
+                bullet.x < enemyBullet.x + enemyBullet.width &&
+                bullet.x + bullet.width > enemyBullet.x &&
+                bullet.y < enemyBullet.y + enemyBullet.height &&
+                bullet.y + bullet.height > enemyBullet.y
+            ) {
+                bullets.splice(bulletIndex, 1);
+                enemyBullets.splice(enemyBulletIndex, 1);
+            }
+        });
+    });
+}
+
+function increaseEnemyBulletSpeed() {
+    if (score % 100 === 0 && score > 0) {
+        enemyBulletsSpeed += 0.01;
+    }
+}
+
+function increaseEnemySpeed() {
+    if (score % 100 === 0 && score > 0) {
+        enemySpeed += 0.01;
+    }
+}
+
+function drawEnemies() {
+    enemies.forEach((enemy, index) => {
+        enemy.y += enemy.speed;
+
+        if (enemy.horizontalSpeed) {
+            enemy.x += enemy.horizontalSpeed * enemy.direction;
+            if (enemy.x <= 0 || enemy.x + enemy.width >= canvas.width) {
+                enemy.direction *= -1;
             }
         }
-    }
 
-    draw(ctx) {
-        ctx.fillStyle = this.color;
-        ctx.fillRect(this.x, this.y, this.width, this.height);
-    }
-
-    shoot() {
-        return new Bullet(
-            this.x + this.width / 2 - 2.5, 
-            this.y + this.height, 
-            5, 
-            10, 
-            'yellow', 
-            4
-        );
-    }
+        if (enemy.y > canvas.height) {
+            enemies.splice(index, 1);
+        }
+        ctx.fillStyle = enemy.color;
+        ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+    });
 }
 
-class Meteor {
-    constructor(x, y, size, speed, horizontalSpeed) {
-        this.x = x;
-        this.y = y;
-        this.width = size;
-        this.height = size;
-        this.speed = speed;
-        this.horizontalSpeed = horizontalSpeed;
-        this.color = 'grey';
-    }
-
-    update(canvasWidth) {
-        this.y += this.speed;
-        this.x += this.horizontalSpeed;
-    }
-
-    draw(ctx) {
-        ctx.fillStyle = this.color;
+function drawMeteors() {
+    meteors.forEach((meteor) => {
+        ctx.fillStyle = meteor.color;
         ctx.beginPath();
-        ctx.moveTo(this.x + this.width / 2, this.y);
-        ctx.lineTo(this.x, this.y + this.height);
-        ctx.lineTo(this.x + this.width, this.y + this.height);
+        ctx.moveTo(meteor.x + meteor.width / 2, meteor.y);
+        ctx.lineTo(meteor.x, meteor.y + meteor.height);
+        ctx.lineTo(meteor.x + meteor.width, meteor.y + meteor.height);
         ctx.closePath();
         ctx.fill();
+    });
+}
+
+// Spawna inimigos a cada segundo
+setInterval(spawnEnemy, 1000);
+setInterval(spawnMeteor, 1000);
+
+function detectCollisions() {
+    bullets.forEach((bullet, bulletIndex) => {
+        enemies.forEach((enemy, enemyIndex) => {
+            if (
+                bullet.x < enemy.x + enemy.width &&
+                bullet.x + bullet.width > enemy.x &&
+                bullet.y < enemy.y + enemy.height &&
+                bullet.y + bullet.height > enemy.y
+            ) {
+                bullets.splice(bulletIndex, 1); // Remove o tiro
+                enemies.splice(enemyIndex, 1); // Remove o inimigo
+                score += 10;
+            }
+        });
+    });
+}
+
+function detectPlayerEnemyCollision() {
+    enemies.forEach((enemy) => {
+        if (
+            player.x < enemy.x + enemy.width &&
+            player.x + player.width > enemy.x &&
+            player.y < enemy.y + enemy.height &&
+            player.y + player.height > enemy.y
+        ) {
+            gameOver();
+        }
+    });
+}
+
+function detectPlayerMeteorCollision() {
+    meteors.forEach((meteor) => {
+        if (
+            player.x < meteor.x + meteor.width &&
+            player.x + player.width > meteor.x &&
+            player.y < meteor.y + meteor.height &&
+            player.y + player.height > meteor.y
+        ) {
+            gameOver();
+        }
+    });
+}
+
+let gameRunning = true;
+
+function gameOver() {
+    gameRunning = false;
+
+    saveHighScore(score); // Passando a pontuação para a função
+
+    ctx.fillStyle = 'red';
+    ctx.font = '48px Arial';
+    ctx.fillText('GAME OVER', canvas.width / 2 - 150, canvas.height / 2);
+
+    ctx.fillStyle = 'white';
+    ctx.font = '24px Arial';
+    ctx.fillText(`Pontuação: ${score}. Pressione Enter para reiniciar`, canvas.width / 2 - 150, canvas.height / 2 + 50);
+
+    setTimeout(() => {
+        drawHighScores();
+    });
+}
+
+function saveHighScore(score) {
+    // Verifica se o score é um número válido
+    if (typeof score !== 'number' || isNaN(score) || score <= 0) {
+        return; // Se não for um número válido, não salva
+    }
+
+    const highScores = JSON.parse(localStorage.getItem('highScores')) || [];
+
+    if (highScores.length < 5 || score > highScores[highScores.length - 1].score) {
+        const playerName = prompt('Parabéns! Você entrou para o ranking! Digite seu nome:');
+    
+        // Verifica se o nome é válido
+        if (playerName && playerName.trim() !== '') {
+            let highScores = JSON.parse(localStorage.getItem('highScores')) || [];
+            
+            // Adiciona o nome e a pontuação no ranking
+            highScores.push({ name: playerName, score });
+    
+            // Ordena as pontuações de maior para menor e mantém apenas as 5 melhores
+            highScores.sort((a, b) => b.score - a.score);
+            highScores = highScores.slice(0, 5);
+    
+            // Salva o novo ranking no localStorage
+            localStorage.setItem('highScores', JSON.stringify(highScores));
+        }
     }
 }
+
+
+function drawHighScores() {
+    const highScores = JSON.parse(localStorage.getItem('highScores')) || [];
+    
+    // Filtra os scores válidos
+    const validScores = highScores.filter(score => score.name && typeof score.score === 'number' && !isNaN(score.score));
+    
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = 'white';
+    ctx.font = '24px Arial';
+    ctx.fillText('Top 5 Pontuações:', canvas.width / 2 - 100, 50);
+
+    validScores.forEach((score, index) => {
+        ctx.fillText(`${index + 1}. ${score.name}: ${score.score}`, canvas.width / 2 - 100, 80 + index * 50);
+    });
+}
+
+
+function drawScore() {
+    ctx.fillStyle = 'white';
+    ctx.font = '24px Arial';
+    ctx.fillText(`Score: ${score}`, 10, 30);
+}
+
+function restartGame() {
+    score = 0;
+    enemies.length = 0; // Limpa os inimigos
+    player.x = canvas.width / 2 - player.width / 2;
+    player.y = canvas.height - player.height - 10;
+
+    gameRunning = true; // Reativa o jogo
+    gameLoop(); // Reinicia o loop do jogo
+}
+
+function gameLoop() {
+    if (!gameRunning) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Atualizando o jogo
+    handlePlayerMovement();
+    handleShooting();
+    handleEnemyShooting();
+    moveMeteors();
+
+    // Chamando a função que spawn novos inimigos e meteoros
+    // spawnEnemiesAndMeteors();
+    // spawnEnemy();
+    // spawnMeteor();
+
+    // Desenha os elementos na tela
+    drawPlayer();
+    drawBullets();
+    drawEnemies();
+    drawMeteors();
+    drawEnemiesBullets();
+    drawStars();
+    drawScore();
+
+    // Detecta colisões
+    detectCollisions();
+    detectBulletEnemyAndPlayerCollisions();
+    detectEnemyBulletCollisions();
+    detectPlayerEnemyCollision();
+    detectMeteorsCollisions();
+    detectPlayerMeteorCollision();
+
+    // Aumenta a dificuldade
+    increaseEnemySpeed();
+    increaseEnemyBulletSpeed();
+
+    requestAnimationFrame(gameLoop);
+}
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !gameRunning) {
+        restartGame(); // Reinicia o jogo ao pressionar Enter
+    }
+
+    pressedKeys[e.key] = true;
+});
+
+document.addEventListener('keyup', (e) => {
+    pressedKeys[e.key] = false;
+});
+
+spawnEnemy();
+gameLoop();
